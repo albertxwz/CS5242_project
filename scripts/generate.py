@@ -10,7 +10,7 @@ import numpy as np
 
 from torch.utils.data._utils.collate import default_collate
 from torchvision import transforms
-from datasets import load_dataset, concatenate_datasets
+from datasets import load_dataset, concatenate_datasets, interleave_datasets
 from transformers import AutoTokenizer, AutoModel
 from diffusers import UNet2DConditionModel
 from diffusers import DDPMScheduler
@@ -183,7 +183,17 @@ def main(args):
         args.color_channels = 3
 
     # Load data
-    dataset = load_dataset(args.dataset_name, split=args.split)
+    # dataset = load_dataset(args.dataset_name, split=args.split)
+    dataset_names = ['yuntian-deng/im2latex-100k',
+                    'yuntian-deng/im2html-100k',
+                    'yuntian-deng/im2smiles-20k',
+                    'yuntian-deng/im2ly-35k-syn']
+    if args.dataset_name != "all":
+        dataset = load_dataset(args.dataset_name, split=args.split)
+    else:
+        # Load all datasets
+        dataset = interleave_datasets([load_dataset(dataset_name, split=args.split)
+                                       for dataset_name in dataset_names])
     dataset = dataset.shuffle(seed=args.seed1)
    
     # Filter data (such as 433d71b530.png)
@@ -206,7 +216,16 @@ def main(args):
     
     def transform(examples):
         gold_images = [image for image in examples["image"]]
-        formulas_and_masks = [preprocess_formula(formula) for formula in examples[args.input_field]]
+        # formulas_and_masks = [preprocess_formula(formula) for formula in examples[args.input_field]]
+        if args.dataset_name != 'all':
+            formulas_and_masks = [preprocess_formula(formula) for formula in examples[args.input_field]]
+        else:
+            formulas_and_masks = []
+            for i in range(len(examples["image"])):
+                for dataset_name in dataset_names:
+                    input_field = get_input_field(dataset_name)
+                    if examples[input_field][i] is not None:
+                        formulas_and_masks.append(preprocess_formula(examples[input_field][i]))
         formulas = [item[0] for item in formulas_and_masks]
         masks = [item[1] for item in formulas_and_masks]
         filenames = examples['filename']

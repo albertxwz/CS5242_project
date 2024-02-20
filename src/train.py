@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from torch.utils.data._utils.collate import default_collate
 from torchvision import transforms
-from datasets import load_dataset 
+from datasets import load_dataset, interleave_datasets
 from transformers import AutoTokenizer, AutoModel
 from diffusers import DDPMScheduler
 from diffusers import DDPMPipeline
@@ -139,8 +139,10 @@ def train(train_dataloader, save_dir, save_model_every, \
     accelerator = Accelerator(
         mixed_precision=mixed_precision,
         gradient_accumulation_steps=gradient_accumulation_steps, 
-        logging_dir=os.path.join(save_dir, "logs")
+        # logging_dir=os.path.join(save_dir, "logs")
+        project_dir=os.path.join(save_dir, 'logs')
     )
+    print("Using device:", accelerator.device)
     text_encoder = text_encoder.to(accelerator.device)
     if accelerator.is_main_process:
         accelerator.init_trackers("markup2im_train")
@@ -186,7 +188,7 @@ def train(train_dataloader, save_dir, save_model_every, \
                 # Sample noise to add to the images
                 noise = torch.randn(clean_images.shape).to(clean_images.device)
                 # first, sample t + m using Q
-                noisy_images_t_plus_m = noise_scheduler.add_noise(clean_images, noise, timesteps+m)
+                noisy_images_t_plus_m = noise_scheduler.add_noise(clean_images, noise, timesteps.to('cpu')+m)
                 noisy_images_t_plus_s = noisy_images_t_plus_m
                 # next, roll back to t using P
                 for s in range(m):
@@ -197,13 +199,14 @@ def train(train_dataloader, save_dir, save_model_every, \
                     x_0_pred = (noisy_images_t_plus_s - lambs_s.view(-1, 1, 1, 1) * noise_pred_rollback_s) / alpha_prod_ts_s.view(-1, 1, 1, 1)
                     noise = torch.randn(clean_images.shape).to(clean_images.device)
                     # get previous step sample
-                    noisy_images_t_plus_s_minus_one  = noise_scheduler.add_noise(x_0_pred, noise, timesteps + m-s-1)
+                    noisy_images_t_plus_s_minus_one  = noise_scheduler.add_noise(x_0_pred, noise, timesteps.to('cpu') + m-s-1)
                     # update
                     noisy_images_t_plus_s = noisy_images_t_plus_s_minus_one
                 noisy_images_t = noisy_images_t_plus_s
 
             with accelerator.accumulate(image_decoder):
                 # Predict the noise residual
+                # print(encoder_hidden_states.shape, noisy_images_t.shape)
                 noise_pred = image_decoder(noisy_images_t, timesteps, encoder_hidden_states, attention_mask=masks)["sample"]
                 lambs_t, alpha_prod_ts_t = noise_scheduler.get_lambda_and_alpha(timesteps)
                 noise = (noisy_images_t - alpha_prod_ts_t.view(-1, 1, 1, 1) * clean_images) / lambs_t.view(-1, 1, 1, 1)
@@ -267,7 +270,16 @@ def main(args):
         args.color_channels = 3
 
     # Load data
-    dataset = load_dataset(args.dataset_name, split=args.split)
+    dataset_names = ['yuntian-deng/im2latex-100k',
+                    'yuntian-deng/im2html-100k',
+                    'yuntian-deng/im2smiles-20k',
+                    'yuntian-deng/im2ly-35k-syn']
+    if args.dataset_name != "all":
+        dataset = load_dataset(args.dataset_name, split=args.split)
+    else:
+        # Load all datasets
+        dataset = interleave_datasets([load_dataset(dataset_name, split=args.split)
+                                       for dataset_name in dataset_names])
     dataset = dataset.shuffle(seed=args.seed1)
    
     # Load input tokenizer
@@ -278,12 +290,13 @@ def main(args):
   
     # Preprocess data to form batches
     transform_list = []
-    if args.color_mode == 'grayscale':
-        transform_list.append(transforms.Grayscale(num_output_channels=args.color_channels))
+    # if args.color_mode == 'grayscale':
+    #     transform_list.append(transforms.Grayscale(num_output_channels=args.color_channels))
     preprocess_image = transforms.Compose(
         transform_list + [
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
+            transforms.Resize(args.image_size)
         ]
     )
     def preprocess_formula(formula):
@@ -295,13 +308,22 @@ def main(args):
     def transform(examples):
         images = [preprocess_image(image.convert("RGB")) for image in examples["image"]]
         gold_images = [image for image in examples["image"]]
-        formulas_and_masks = [preprocess_formula(formula) for formula in examples[args.input_field]]
+        if args.dataset_name != 'all':
+            formulas_and_masks = [preprocess_formula(formula) for formula in examples[args.input_field]]
+        else:
+            formulas_and_masks = []
+            for i in range(len(examples["image"])):
+                for dataset_name in dataset_names:
+                    input_field = get_input_field(dataset_name)
+                    if examples[input_field][i] is not None:
+                        formulas_and_masks.append(preprocess_formula(examples[input_field][i]))
         formulas = [item[0] for item in formulas_and_masks]
         masks = [item[1] for item in formulas_and_masks]
         filenames = examples['filename']
         return {'images': images, 'input_ids': formulas, 'attention_mask': masks, 'filenames': filenames, 'gold_images': gold_images}
     
     dataset.set_transform(transform)
+    # dataset.map(transform, batched=True)
 
     def collate_fn(examples):
         eos_id = tokenizer.encode(tokenizer.eos_token)[0] # legacy code, might be unnecessary

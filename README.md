@@ -1,3 +1,6 @@
+# CS5242
+To train, `python src/train.py --save_dir models/all --dataset_name all`.
+
 # Markup-to-Image Diffusion Models with Scheduled Sampling
 
 We provide code to reproduce [our paper on markup-to-image generation](https://openreview.net/pdf?id=81VJDmOE2ol). Our code is built on top of HuggingFace [diffusers](https://github.com/huggingface/diffusers) and [transformers](https://github.com/huggingface/transformers).
