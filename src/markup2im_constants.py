@@ -3,7 +3,7 @@ DATASET_TO_IMAGE_SIZES = {
     'yuntian-deng/im2html-100k': (64, 64),
     'yuntian-deng/im2ly-35k-syn': (192, 448),
     'yuntian-deng/im2smiles-20k': (128, 128),
-    'all': (64, 256),
+    'all': (64, 160),
 }
 
 DATASET_TO_INPUT_FIELDS = {

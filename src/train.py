@@ -21,6 +21,8 @@ sys.path.insert(0, '%s'%os.path.join(os.path.dirname(__file__), '../src/'))
 from markup2im_constants import get_image_size, get_input_field, get_encoder_model_type, get_color_mode
 from markup2im_models import create_image_decoder, encode_text, save_model
 
+from utils import PadToSize
+
 
 torch.backends.cuda.matmul.allow_tf32=True # for speed
 
@@ -272,8 +274,7 @@ def main(args):
     # Load data
     dataset_names = ['yuntian-deng/im2latex-100k',
                     'yuntian-deng/im2html-100k',
-                    'yuntian-deng/im2smiles-20k',
-                    'yuntian-deng/im2ly-35k-syn']
+                    'yuntian-deng/im2smiles-20k']
     if args.dataset_name != "all":
         dataset = load_dataset(args.dataset_name, split=args.split)
     else:
@@ -295,6 +296,7 @@ def main(args):
     preprocess_image = transforms.Compose(
         transform_list + [
             transforms.ToTensor(),
+            PadToSize((image_size[0] * 2, image_size[1] * 2)),
             transforms.Normalize([0.5], [0.5]),
             transforms.Resize(args.image_size)
         ]
