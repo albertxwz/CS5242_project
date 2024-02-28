@@ -19,6 +19,6 @@ from django.urls import path
 from backend.view import getImageList
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # path("admin/", admin.site.urls),
     path("getImagePath/", getImageList, name='getImagePath')
 ]
