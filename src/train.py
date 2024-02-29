@@ -318,7 +318,7 @@ def main(args):
             target_modules=["q_proj", "v_proj"],
             lora_dropout=0.05,
             bias="none",
-            task_type=TaskType.CAUSAL_LM
+            task_type=TaskType.FEATURE_EXTRACTION
         )
         model = AutoModel.from_pretrained(args.encoder_model_type)
         text_encoder = get_peft_model(model, peft_config).cuda()
