@@ -1,4 +1,5 @@
 transformers
 datasets
 accelerate
+tensorboard
 git+https://github.com/da03/diffusers
