@@ -1,6 +1,10 @@
-from torchvision.transforms.functional import pad
+from torchvision.transforms.functional import pad, resize
 import torch
 from torch import nn
+
+# class Resize_prop(nn.Module):
+#     '''Resize the image proportionally until
+#     '''
 
 class PadToSize(nn.Module):
     '''Pad the given image from the last row and column until its size reaches the goal.

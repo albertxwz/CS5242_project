@@ -1,6 +1,7 @@
 import os
 import sys
 import random
+import string
 import argparse
 
 import torch
@@ -15,6 +16,7 @@ from diffusers import DDPMScheduler
 from diffusers import DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from accelerate import Accelerator
+from accelerate.utils import LoggerType
 from tqdm.auto import tqdm
 
 sys.path.insert(0, '%s'%os.path.join(os.path.dirname(__file__), '../src/'))
@@ -130,7 +132,7 @@ def process_args(args):
     parameters = parser.parse_args(args)
     return parameters
 
-def train(train_dataloader, save_dir, save_model_every, \
+def train(args, train_dataloader, save_dir, save_model_every, \
         text_encoder, image_decoder, noise_scheduler, \
         scheduled_sampling_weights_start, scheduled_sampling_weights_end, \
         optimizer, lr_scheduler, num_epochs, gradient_accumulation_steps=1, \
@@ -142,12 +144,18 @@ def train(train_dataloader, save_dir, save_model_every, \
         mixed_precision=mixed_precision,
         gradient_accumulation_steps=gradient_accumulation_steps, 
         # logging_dir=os.path.join(save_dir, "logs")
-        project_dir=os.path.join(save_dir, 'logs')
+        project_dir=save_dir,
+        log_with=LoggerType.TENSORBOARD
     )
     print("Using device:", accelerator.device)
     text_encoder = text_encoder.to(accelerator.device)
     if accelerator.is_main_process:
-        accelerator.init_trackers("markup2im_train")
+        config = {}
+        dt = vars(args)
+        for key in dt:
+            if dt[key] is not None:
+                config[key] = dt[key] if isinstance(dt[key], int) or isinstance(dt[key], float) else str(dt[key])
+        accelerator.init_trackers("logs", config=config)
     
     image_decoder, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         image_decoder, optimizer, train_dataloader, lr_scheduler
@@ -157,8 +165,9 @@ def train(train_dataloader, save_dir, save_model_every, \
     scheduled_sampling_weights_end = np.array(scheduled_sampling_weights_end)
     global_step = 0
     total_steps = len(train_dataloader)*num_epochs
+
     for epoch in range(num_epochs):
-        progress_bar = tqdm(total=len(train_dataloader), disable=not accelerator.is_local_main_process)
+        progress_bar = tqdm(total=len(train_dataloader), disable=not accelerator.is_local_main_process, ascii=True, mininterval=5.)
         progress_bar.set_description(f"Epoch {epoch}")
 
         for step, batch in enumerate(train_dataloader):
@@ -225,8 +234,11 @@ def train(train_dataloader, save_dir, save_model_every, \
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             global_step += 1
+
         if epoch % save_model_every == 0:
             save_model(image_decoder, os.path.join(save_dir, f'model_e{num_epochs}_lr{learning_rate}.pt.{epoch}'))
+        
+    accelerator.end_training()
 
 
 def main(args):
@@ -272,9 +284,9 @@ def main(args):
         args.color_channels = 3
 
     # Load data
+    # NOTE: If the dataset_name is 'all', datasets below are what you need.
     dataset_names = ['yuntian-deng/im2latex-100k',
-                    'yuntian-deng/im2html-100k',
-                    'yuntian-deng/im2smiles-20k']
+                    'yuntian-deng/im2html-100k']
     if args.dataset_name != "all":
         dataset = load_dataset(args.dataset_name, split=args.split)
     else:
@@ -291,14 +303,13 @@ def main(args):
   
     # Preprocess data to form batches
     transform_list = []
-    # if args.color_mode == 'grayscale':
-    #     transform_list.append(transforms.Grayscale(num_output_channels=args.color_channels))
+    if args.color_mode == 'grayscale':
+        transform_list.append(transforms.Grayscale(num_output_channels=args.color_channels))
     preprocess_image = transforms.Compose(
         transform_list + [
             transforms.ToTensor(),
-            PadToSize((image_size[0] * 2, image_size[1] * 2)),
+            PadToSize(image_size),
             transforms.Normalize([0.5], [0.5]),
-            transforms.Resize(args.image_size)
         ]
     )
     def preprocess_formula(formula):
@@ -325,7 +336,6 @@ def main(args):
         return {'images': images, 'input_ids': formulas, 'attention_mask': masks, 'filenames': filenames, 'gold_images': gold_images}
     
     dataset.set_transform(transform)
-    # dataset.map(transform, batched=True)
 
     def collate_fn(examples):
         eos_id = tokenizer.encode(tokenizer.eos_token)[0] # legacy code, might be unnecessary
@@ -373,7 +383,7 @@ def main(args):
         num_warmup_steps=args.lr_warmup_steps,
         num_training_steps=(len(train_dataloader) * args.num_epochs),
     )
-    train(train_dataloader, args.save_dir, args.save_model_every, \
+    train(args, train_dataloader, args.save_dir, args.save_model_every, \
         text_encoder, image_decoder, noise_scheduler, \
         args.scheduled_sampling_weights_start, args.scheduled_sampling_weights_end, \
         optimizer, lr_scheduler, args.num_epochs, \

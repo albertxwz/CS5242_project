@@ -186,8 +186,7 @@ def main(args):
     # dataset = load_dataset(args.dataset_name, split=args.split)
     dataset_names = ['yuntian-deng/im2latex-100k',
                     'yuntian-deng/im2html-100k',
-                    'yuntian-deng/im2smiles-20k',
-                    'yuntian-deng/im2ly-35k-syn']
+                    'yuntian-deng/im2smiles-20k']
     if args.dataset_name != "all":
         dataset = load_dataset(args.dataset_name, split=args.split)
     else:

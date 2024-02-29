@@ -1,1 +1,5 @@
 output/*
+models/*
+dummy
+*.out
+*.error
