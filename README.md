@@ -1,6 +1,10 @@
 # CS5242
 To train, `python src/train.py --save_dir models/all --dataset_name all`.
 
+To train on a node with multiple gpus, check the script `run_multigpus.sh`.
+
+To train on multiple nodes with multiple gpus, check the script `run_multinode.sh`.
+
 # Markup-to-Image Diffusion Models with Scheduled Sampling
 
 We provide code to reproduce [our paper on markup-to-image generation](https://openreview.net/pdf?id=81VJDmOE2ol). Our code is built on top of HuggingFace [diffusers](https://github.com/huggingface/diffusers) and [transformers](https://github.com/huggingface/transformers).
