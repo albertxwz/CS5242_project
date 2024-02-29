@@ -2,4 +2,6 @@ transformers
 datasets
 accelerate
 tensorboard
+peft
+torchvision
 git+https://github.com/da03/diffusers

@@ -5,6 +5,7 @@ import string
 import argparse
 
 import torch
+import peft
 import numpy as np
 import torch.nn.functional as F
 
@@ -18,6 +19,7 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 from accelerate import Accelerator
 from accelerate.utils import LoggerType
 from tqdm.auto import tqdm
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
 
 sys.path.insert(0, '%s'%os.path.join(os.path.dirname(__file__), '../src/'))
 from markup2im_constants import get_image_size, get_input_field, get_encoder_model_type, get_color_mode
@@ -129,6 +131,14 @@ def process_args(args):
                         type=int, default=1234,
                         help=('Random seed for data loader. Shouldn\'t be changed to be comparable to numbers reported in the paper.'
                         ))
+    parser.add_argument('--lora',
+                        action='store_true',
+                        help=('Use LoRA to train the model.'
+                        ))
+    parser.add_argument('--tune_encoder',
+                        action='store_true',
+                        help=('Tune encoder model.'
+                        ))
     parameters = parser.parse_args(args)
     return parameters
 
@@ -180,7 +190,7 @@ def train(args, train_dataloader, save_dir, save_model_every, \
             clean_images = batch['images'].to(accelerator.device)
             input_ids = batch['input_ids'].to(accelerator.device)
             masks = batch['attention_mask'].to(accelerator.device)
-            encoder_hidden_states = encode_text(text_encoder, input_ids, masks)
+            encoder_hidden_states = encode_text(text_encoder, input_ids, masks, not args.tune_encoder)
             bs = clean_images.shape[0]
 
             # Sample a random timestep for each image
@@ -237,6 +247,7 @@ def train(args, train_dataloader, save_dir, save_model_every, \
 
         if epoch % save_model_every == 0:
             save_model(image_decoder, os.path.join(save_dir, f'model_e{num_epochs}_lr{learning_rate}.pt.{epoch}'))
+            text_encoder.save_pretrained(save_dir)
         
     accelerator.end_training()
 
@@ -282,7 +293,8 @@ def main(args):
         args.color_channels = 1
     else:
         args.color_channels = 3
-
+    if args.lora:
+        args.tune_encoder = True
     # Load data
     # NOTE: If the dataset_name is 'all', datasets below are what you need.
     dataset_names = ['yuntian-deng/im2latex-100k',
@@ -299,7 +311,20 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.encoder_model_type)
 
     # Load input encoder
-    text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
+    if args.lora:
+        peft_config = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            task_type=TaskType.CAUSAL_LM
+        )
+        model = AutoModel.from_pretrained(args.encoder_model_type)
+        text_encoder = get_peft_model(model, peft_config).cuda()
+        text_encoder.print_trainable_parameters()
+    else:
+        text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
   
     # Preprocess data to form batches
     transform_list = []
@@ -366,7 +391,7 @@ def main(args):
             num_workers=args.num_dataloader_workers)
 
     # Create and load models
-    text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
+    # text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
     # forward a fake batch to figure out cross_attention_dim
     hidden_states = encode_text(text_encoder, torch.zeros(1,1).long().cuda(), None)
     cross_attention_dim = hidden_states.shape[-1]
@@ -393,6 +418,7 @@ def main(args):
 
     # Save final model
     save_model(image_decoder, os.path.join(args.save_dir, f'model_e{args.num_epochs}_lr{args.learning_rate}.pt.{args.num_epochs}'))
+    text_encoder.save_pretrained(args.save_dir)
 
 
 if __name__ == '__main__':

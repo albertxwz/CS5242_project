@@ -16,6 +16,7 @@ from diffusers import UNet2DConditionModel
 from diffusers import DDPMScheduler
 from diffusers import DDPMPipeline
 from accelerate import Accelerator
+from peft import AutoPeftModel
 
 sys.path.insert(0, '%s'%os.path.join(os.path.dirname(__file__), '../src/'))
 from markup2im_constants import get_image_size, get_input_field, get_encoder_model_type, get_color_mode
@@ -90,6 +91,11 @@ def process_args(args):
                         type=int, default=1234,
                         help=('Random seed for data loader. Shouldn\'t be changed to be comparable to numbers reported in the paper.'
                         ))
+    parser.add_argument('--lora',
+                        action='store_true',
+                        help=('Use LoRA to train the model.'
+                        ))
+                        
     parameters = parser.parse_args(args)
     return parameters
 
@@ -165,6 +171,8 @@ def main(args):
     if args.encoder_model_type is not None:
         encoder_model_type = args.encoder_model_type
     else:
+        if args.lora:
+            assert False, "LoRA is enabled, but encoder_model_type is not specified."
         print (f'Using default encoder model type for dataset {args.dataset_name}')
         encoder_model_type = get_encoder_model_type(args.dataset_name)
         print (f'Default encoder model type: {encoder_model_type}')
@@ -204,6 +212,8 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.encoder_model_type)
 
     # Load input encoder
+    if args.lora:
+        text_encoder = AutoPeftModel.from_pretrained(args.encoder_model_type).cuda()
     text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
   
     # Preprocess data to form batches
@@ -259,7 +269,7 @@ def main(args):
     eval_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn, worker_init_fn=np.random.seed(0), num_workers=0)
 
     # Create and load models
-    text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
+    # text_encoder = AutoModel.from_pretrained(args.encoder_model_type).cuda()
     # forward a fake batch to figure out cross_attention_dim
     hidden_states = encode_text(text_encoder, torch.zeros(1,1).long().cuda(), None)
     cross_attention_dim = hidden_states.shape[-1]

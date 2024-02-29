@@ -19,7 +19,7 @@ DATASET_TO_ENCODER_MODEL_TYPES = {
     'yuntian-deng/im2html-100k': 'EleutherAI/gpt-neo-125M',
     'yuntian-deng/im2ly-35k-syn': 'EleutherAI/gpt-neo-125M',
     'yuntian-deng/im2smiles-20k': 'DeepChem/ChemBERTa-77M-MLM',
-    'all': 'EleutherAI/gpt-neo-125M',
+    'all': 'google/gemma-2b',
 }
 
 DATASET_TO_COLOR_MODES = {

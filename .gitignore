@@ -1,5 +1,7 @@
 output/*
 models/*
 dummy
+*.log
 *.out
 *.error
+__pycache__
