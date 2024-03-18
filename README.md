@@ -6,7 +6,7 @@ To run the Django server
 
 ```Shell
 cd backend
-python runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000
 ```
 
 # Frontend
