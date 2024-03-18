@@ -16,9 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from backend.view import getImageList
+from backend.view import generateImage
 
 urlpatterns = [
     # path("admin/", admin.site.urls),
-    path("getImagePath/", getImageList, name='getImagePath')
+    path("generateImage/", generateImage, name='generateImage')
 ]

@@ -1,9 +1,12 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import json
+import time
 
 @csrf_exempt
-def getImageList(request):
-    id = request.GET.get('id')
-    name = request.GET.get('name')
-    
-    return JsonResponse({name: id})
+def generateImage(request):
+    data = json.loads(request.body)
+    print(data)
+    code = data['code']
+    time.sleep(3)
+    return JsonResponse({'status': 200, 'data': code})
