@@ -6,15 +6,19 @@
     </div>
     <div class="function-area">
       <div class="input-window">
+        <div id="selector">
+          <span style="float: left; margin-right: 2%; font-size: 200%; font-family: trebuchet ms; color: white;">Model: </span>
+          <Dropdown style="width: 25%; float: left;" v-model="selectedModel" :options="models" optionValue="value" optionLabel="name" placeholder="Select a Model"/>
+        </div>
         <div id="editor">
           <CodeEditor 
             :wrap="true"
             :modelValue.sync="code"
             @content="getContent"
-            theme="github-dark" 
-            :languages="[['latex', 'LaTex'],['html', 'HTML']]"
+            theme="gradient-dark" 
+            :languages="[['latex', 'LaTex'],['html', 'HTML'],['lilypond', 'LilyPond'], ['smiles', 'SMILES']]"
             width="100%" 
-            height="650px">
+            height="100%">
           </CodeEditor>
         </div>
 
@@ -22,7 +26,17 @@
           <button id="generate-button" @click="GenerateImage()">Generate</button>
         </div>
       </div>
-      <div class="output-window"></div>
+      <div class="output-window">
+        <div class="generating">
+          <span class="generate_text" v-if="start && !finish" style="float: left;">Generate Step: {{ step }}</span>
+          <span class="generate_text" v-else-if="!start && !finish" style="float: left;">Press to Generate</span>
+          <span class="generate_text" v-else-if="finish" style="float: left;">Generate Successfully!</span>
+          <ProgressBar v-if="start && !finish" style="height: 4%; width: 100%;" mode="indeterminate"></ProgressBar>
+          <ProgressBar v-else-if="!start && !finish" style="height: 4%; width: 100%;" :value="0"></ProgressBar>
+          <ProgressBar v-else-if="finish" style="height: 4%; width: 100%;" :value="100"></ProgressBar>
+          <img v-if="generating" class="ImageDiv" :src="image" alt="Dynamic Base64 Image">
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -30,18 +44,32 @@
 <script>
 import hljs from 'highlight.js';
 import CodeEditor from "simple-code-editor";
-import axios from 'axios';
-import { Loading } from 'element-ui';
+import ProgressBar from 'primevue/progressbar';
+import Dropdown from 'primevue/dropdown';
+
 
 export default {
   components: {
-    CodeEditor
+    CodeEditor,
+    ProgressBar,
+    Dropdown
   },
   name: 'Main',
   data () {
     return {
 		    btnNum: 1,
         code: "",
+        image: '',
+        step: 0,
+        generating: false,
+        start: false,
+        finish: false,
+        selectedModel: 0,
+        models: [
+          {name: "Classification Model", value: 0},
+          {name: "N to N Model", value: 1}
+        ]
+
 			}
   },
   methods:{
@@ -49,36 +77,34 @@ export default {
 			this.btnNum = index;
 		},
     GenerateImage() {
-      console.log(this.code)
+      this.socket = new WebSocket('ws://localhost:8000/ws/get_image/');
+      this.start = true
+      this.finish = false
+      this.step = 0
+      this.generating = false
+      this.socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (typeof data.image !== 'undefined'){
+          if (!this.generating){
+            this.generating = true
+          }
+          this.image = "data:image/png;base64," + data.image
+        }
+        this.step = data.step
 
-      const url = 'http://localhost:8000/generateImage/';
-  
-      const data = {
-        "code": this.code
-      };
-  
-      const config = {
-        headers: {
-          'Content-Type': 'application/json'
+        if (data.step === 200){
+          this.socket.close()
+          this.finish = true
         }
       };
-      const loading = this.$loading({
-          lock: true,
-          text: 'Loading',
-          spinner: 'el-icon-loading',
-          background: 'rgba(0, 0, 0, 0.7)'
-        });
-      
-      axios.post(url, data, config)
-        .then(response => {
-          console.log(response.data);
-          loading.close();
-          this.$notify({
-            title: 'Success',
-            message: 'The Image Has been Generated!',
-            type: 'success'
-          });
-        })
+
+      this.socket.onclose = (event) => {
+        console.log('WebSocket closed:', event);
+      };
+
+      this.socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
     },
     getContent(content) {
       return content
@@ -113,6 +139,7 @@ export default {
   width: 100%;
   height: 50%;
   font-size: 40px;
+  color: white;
   font-family: "Cambria";
   font-weight: bolder;
 }
@@ -121,9 +148,37 @@ export default {
 #author-text {
   width: 100%;
   height: 50%;
+  color: white;
   margin-right: 10%;
   font-family: "Comic Sans";
 }
+
+.generating{
+  width: 80%;
+  height: 60%;
+  margin: auto;
+  margin-top: 5%
+}
+
+.ImageDiv {
+  width: 50%;
+  height: 50%;
+  margin: auto;
+  object-fit: contain;
+}
+
+.p-dropdown {
+  background: black;
+  color: white;
+  font-weight: bold;
+  border: 2px solid gray;
+}
+
+.p-dropdown-panel .p-dropdown-items {
+    padding: 0.5rem 0;
+    background: black;
+}
+
 
 
 .function-area {
@@ -159,9 +214,15 @@ export default {
   background: #7c94ff !important;
 }
 
-.editor {
+#editor {
   width: 100%;
-  height: 90%;
+  height: 77%;
+}
+
+#selector {
+  width: 100%;
+  height: 7%;
+  
 }
 
 #generate-button{
@@ -174,7 +235,16 @@ export default {
   margin-top: 1.5%;
   float: right;
   font-family: "Cambria";
+  color: white;
   background-color: #7c94ff;
+}
+
+.generate_text{
+  font-size: 150%;
+  font-weight: bold;
+  margin-bottom: 1%;
+  font-family: trebuchet ms;
+  color: white;
 }
 
 #generate-button:hover{
@@ -187,6 +257,7 @@ export default {
   margin-top: 1.5%;
   float: right;
   font-family: "Cambria";
+  color: white;
   background-color: #3f63ff;
 }
 
@@ -196,7 +267,19 @@ export default {
   height: 92%;
   margin: auto;
   margin-top: 0;
-  border: 2px dashed black;
+  border: 2px dashed gray;
 }
 
+</style>
+
+
+<style>
+.p-highlight {
+    color: #495057;
+    background: rgb(73, 73, 73) !important;
+}
+
+.p-dropdown-item:hover{
+  background: gray !important;
+}
 </style>

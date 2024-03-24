@@ -7,8 +7,15 @@ import router from './router'
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 
+import PrimeVue from 'primevue/config';
+
+
 Vue.use(ElementUI)
-// Vue.use(CodeEditor)
+Vue.use(PrimeVue);
+
+import 'primevue/resources/themes/saga-blue/theme.css'; // 主题
+import 'primevue/resources/primevue.min.css'; // 核心样式
+import 'primeicons/primeicons.css'; // 图标
 
 Vue.config.productionTip = false
 
