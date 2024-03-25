@@ -14,6 +14,7 @@
           <CodeEditor 
             :wrap="true"
             :modelValue.sync="code"
+            :readOnly="start"
             @content="getContent"
             theme="gradient-dark" 
             :languages="[['latex', 'LaTex'],['html', 'HTML'],['lilypond', 'LilyPond'], ['smiles', 'SMILES']]"
@@ -23,18 +24,23 @@
         </div>
 
         <div style="width: 100%; height: 10%;">
-          <button id="generate-button" @click="GenerateImage()">Generate</button>
+          <button :disabled="start" id="generate-button" @click="GenerateImage()">Generate</button>
         </div>
       </div>
       <div class="output-window">
-        <div class="generating">
-          <span class="generate_text" v-if="start && !finish" style="float: left;">Generate Step: {{ step }}</span>
-          <span class="generate_text" v-else-if="!start && !finish" style="float: left;">Press to Generate</span>
-          <span class="generate_text" v-else-if="finish" style="float: left;">Generate Successfully!</span>
-          <ProgressBar v-if="start && !finish" style="height: 4%; width: 100%;" mode="indeterminate"></ProgressBar>
-          <ProgressBar v-else-if="!start && !finish" style="height: 4%; width: 100%;" :value="0"></ProgressBar>
-          <ProgressBar v-else-if="finish" style="height: 4%; width: 100%;" :value="100"></ProgressBar>
-          <img v-if="generating" class="ImageDiv" :src="image" alt="Dynamic Base64 Image">
+        <div style="height: 92%; width: 100%;  border: 2px solid gray; border-radius: 5px;">
+          <div class="generating">
+            <span class="generate_text" v-if="start && !finish" style="float: left;">Generate Step: {{ step }}</span>
+            <span class="generate_text" v-else-if="!start && !finish" style="float: left;">Press to Generate</span>
+            <span class="generate_text" v-else-if="finish" style="float: left;">Generate Successfully!</span>
+            <ProgressBar class="process" v-if="start && !finish" style="height: 4%; width: 100%;" mode="indeterminate"></ProgressBar>
+            <ProgressBar class="process" v-else-if="!start && !finish" style="height: 4%; width: 100%;" :value="0"></ProgressBar>
+            <ProgressBar class="process" v-else-if="finish" style="height: 4%; width: 100%;" :value="100"></ProgressBar>
+            <img v-if="generating" class="ImageDiv" :src="image" alt="Dynamic Base64 Image">
+          </div>
+        </div>
+        <div style="width: 100%; height: 10%;">
+          <button :disabled="!finish" id="save-button" @click="saveImage()">Save Image</button>
         </div>
       </div>
     </div>
@@ -82,6 +88,11 @@ export default {
       this.finish = false
       this.step = 0
       this.generating = false
+
+      this.socket.onopen = () => {
+        this.socket.send(this.code)
+      };
+
       this.socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (typeof data.image !== 'undefined'){
@@ -95,6 +106,7 @@ export default {
         if (data.step === 200){
           this.socket.close()
           this.finish = true
+          this.start = false
         }
       };
 
@@ -105,6 +117,14 @@ export default {
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
       };
+    },
+    saveImage() {
+      const link = document.createElement('a');
+      link.href = this.image;
+      link.download = 'generated.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     },
     getContent(content) {
       return content
@@ -239,6 +259,36 @@ export default {
   background-color: #7c94ff;
 }
 
+
+#save-button{
+  width: 20%;
+  height: 60%;
+  border: 0px;
+  border-radius: 5px;
+  font-size: 25px;
+  font-weight: 200;
+  margin-top: 1.5%;
+  float: right;
+  font-family: "Cambria";
+  color: white;
+  background-color: #7c94ff;
+}
+
+#save-button:hover{
+  width: 20%;
+  height: 60%;
+  border: 0px;
+  font-size: 25px;
+  font-weight: bolder;
+  border-radius: 5px;
+  margin-top: 1.5%;
+  float: right;
+  font-family: "Cambria";
+  color: white;
+  background-color: #3f63ff;
+}
+
+
 .generate_text{
   font-size: 150%;
   font-weight: bold;
@@ -261,13 +311,15 @@ export default {
   background-color: #3f63ff;
 }
 
+.process {
+  border: 2px solid white;
+}
+
 .output-window {
-  border-radius: 5px;
   width: 45%;
   height: 92%;
   margin: auto;
   margin-top: 0;
-  border: 2px dashed gray;
 }
 
 </style>

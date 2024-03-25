@@ -7,7 +7,7 @@ class ImageConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         print('connect start....')
         await self.accept()
-        await self.run_model_and_send_images()
+        # await self.run_model_and_send_images()
 
     async def run_model_and_send_images(self):
         for step in range(1, 1001):  # 假设模型运行1000步
@@ -36,6 +36,4 @@ class ImageConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         message = text_data
         print(message)
-        await self.send(text_data=json.dumps({
-            'message': message
-        }))
+        await self.run_model_and_send_images()
