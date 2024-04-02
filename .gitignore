@@ -4,3 +4,4 @@ dummy
 *.out
 *.error
 frontend/markup2im-frontend/node_modules
+*.png

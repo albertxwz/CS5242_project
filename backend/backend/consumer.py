@@ -21,18 +21,19 @@ class ImageConsumer(AsyncWebsocketConsumer):
 
     async def run_model_and_send_images(self):
         image_list = list_files('data/image')
-        image_list.sort()
-        cnt = 0
-        for step in range(1, 41):  # 假设模型运行1000步
+        image_list.sort(reverse=True)
+        print(image_list)
+        for step in range(1, 1001):  # 假设模型运行1000步
             # 模拟模型运行所需时间
             await asyncio.sleep(0.05)  # 使用asyncio.sleep来模拟异步运行
             if step % 20 == 0:
-                image_data = image_to_base64(image_list[cnt])
+                image_name = image_list.pop()
+                image_data = image_to_base64(image_name)
+                print(image_name)
                 await self.send(text_data=json.dumps({
                     'image': image_data,
                     'step': step
                 }))
-                cnt += 1
             else:
                 await self.send(text_data=json.dumps({
                     'step': step
