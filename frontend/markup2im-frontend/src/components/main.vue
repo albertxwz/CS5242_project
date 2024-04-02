@@ -90,7 +90,7 @@ export default {
       this.generating = false
 
       this.socket.onopen = () => {
-        this.socket.send(this.code)
+        this.socket.send(JSON.stringify({"code": this.code, "model":this.selectedModel}))
       };
 
       this.socket.onmessage = (event) => {
@@ -199,8 +199,6 @@ export default {
     background: black;
 }
 
-
-
 .function-area {
   width: 100%;
   height: 85%;
@@ -250,7 +248,7 @@ export default {
   height: 60%;
   border: 0px;
   border-radius: 5px;
-  font-size: 25px;
+  font-size: 40%;
   font-weight: 200;
   margin-top: 1.5%;
   float: right;
@@ -265,7 +263,7 @@ export default {
   height: 60%;
   border: 0px;
   border-radius: 5px;
-  font-size: 25px;
+  font-size: 40%;
   font-weight: 200;
   margin-top: 1.5%;
   float: right;
@@ -278,7 +276,7 @@ export default {
   width: 20%;
   height: 60%;
   border: 0px;
-  font-size: 25px;
+  font-size: 40%;
   font-weight: bolder;
   border-radius: 5px;
   margin-top: 1.5%;
@@ -301,7 +299,7 @@ export default {
   width: 15%;
   height: 60%;
   border: 0px;
-  font-size: 25px;
+  font-size: 40%;
   font-weight: bolder;
   border-radius: 5px;
   margin-top: 1.5%;
@@ -328,10 +326,14 @@ export default {
 <style>
 .p-highlight {
     color: #495057;
-    background: rgb(73, 73, 73) !important;
+    background: rgb(204, 122, 122) !important;
 }
 
 .p-dropdown-item:hover{
   background: gray !important;
+}
+
+.code-editor.scroll .code-area > textarea {
+    color: white;
 }
 </style>

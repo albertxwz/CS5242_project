@@ -13,7 +13,7 @@ class ImageConsumer(AsyncWebsocketConsumer):
         for step in range(1, 1001):  # 假设模型运行1000步
             # 模拟模型运行所需时间
             await asyncio.sleep(0.05)  # 使用asyncio.sleep来模拟异步运行
-            if step == 100:  
+            if step == 100:
                 image_data = image_to_base64('data/image/nus_logo.png')
                 await self.send(text_data=json.dumps({
                     'image': image_data,
@@ -34,6 +34,8 @@ class ImageConsumer(AsyncWebsocketConsumer):
         pass
 
     async def receive(self, text_data):
-        message = text_data
-        print(message)
+        message = json.loads(text_data)
+        code = message['code']
+        model = message['model']
+        print(code, model)
         await self.run_model_and_send_images()
