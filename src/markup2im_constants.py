@@ -3,7 +3,7 @@ DATASET_TO_IMAGE_SIZES = {
     'yuntian-deng/im2html-100k': (64, 64),
     'yuntian-deng/im2ly-35k-syn': (192, 448),
     'yuntian-deng/im2smiles-20k': (128, 128),
-    'all': (128, 320),  # NOTE: depends on the size that fit your all data. Same to color setting.
+    'all': (64, 320),  # NOTE: depends on the size that fit your all data. Same to color setting.
 }
 
 DATASET_TO_INPUT_FIELDS = {
@@ -27,7 +27,7 @@ DATASET_TO_COLOR_MODES = {
     'yuntian-deng/im2html-100k': 'grayscale',
     'yuntian-deng/im2ly-35k-syn': 'grayscale',
     'yuntian-deng/im2smiles-20k': 'rgb',
-    'all': 'rgb',
+    'all': 'grayscale',
 }
 
 def get_image_size(dataset_name):

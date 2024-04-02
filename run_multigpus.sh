@@ -16,6 +16,9 @@ cd ~/codes/markup2im
 export GPUS_PER_NODE=1
 ######################
 
+# Used for a100mig devices
+export CUDA_VISIBLE_DEVICES=$(nvidia-smi -L | grep "MIG" | awk '{gsub(/\)/,""); print $6}' | paste -sd "," -)
+
 export LAUNCHER="accelerate launch \
     --multi_gpu \
     --num_processes $GPUS_PER_NODE \
