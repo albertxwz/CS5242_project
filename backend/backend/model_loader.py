@@ -4,6 +4,8 @@ from torch import nn
 from transformers import AutoTokenizer, AutoModel
 from diffusers import DDPMPipeline, DDPMScheduler, UNet2DConditionModel
 from accelerate import Accelerator
+from tensorflow.keras.preprocessing.text import tokenizer_from_json
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 def load_pipeline(image_decoder, model_path):
     state_dict = torch.load(model_path, map_location='cpu')
@@ -110,17 +112,55 @@ model_paths = [
     "/home/x/xie77777/codes/markup2im/models/music/scheduled_sampling/model_e100_lr0.0001.pt.100", # music
 ]
 
-# TODO: complete this part
+# TODO: complete this 
+## added
+class TextMLP(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
+        super(TextMLP, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.fc1 = nn.Linear(200 * embedding_dim, hidden_dim)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        embedded = self.embedding(x) # [batch_size, seq_length, embedding_dim]
+        embedded = embedded.view(embedded.shape[0], -1) # Flatten [batch_size, seq_length*embedding_dim]
+        out = self.fc1(embedded)
+        out = self.relu(out)
+        out = self.fc2(out)
+        return out
+        
 class MOECompiler(BaseCompiler):
     def __init__(self) -> None:
         self.compilers = [
             BaseCompiler(p, "/home/x/xie77777/codes/markup2im/backend/data/dummy")
                 for p in model_paths
         ]
-        self.selector = None # classifier
+        #added 
+        self.selector = torch.load("MOEmodel_torch.pth", map_location=torch.device('cpu'))# classifier
+    #added
+    def get_type(self, text):
+        model = self.selector
+        result = 0 # set default as math
 
+        with open('tokenizer.json', 'r', encoding='utf-8') as f:
+            data = f.read()
+            tokenizer = tokenizer_from_json(data)
+
+        sequence = tokenizer.texts_to_sequences([text])
+        padded_sequence = pad_sequences(sequence, maxlen=200, padding='post', truncating='post')
+
+        input_tensor = torch.tensor(padded_sequence, dtype=torch.long)
+        model.eval()
+
+        with torch.no_grad():
+            output = model(input_tensor)
+            prediction = torch.argmax(output, dim=1)
+            result = prediction.item()
+        return result
+        
     def compile(self, text) -> None:
-        model_index = self.selector(text)
+        model_index = self.get_type(text)# modify
         self.compilers[model_index].compile(text)
 
 # test
