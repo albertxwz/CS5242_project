@@ -1,43 +1,84 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
-import os
-import asyncio
 from backend.image_preprocesser import image_to_base64
 import os
+import threading
+import glob
+import torch
+from backend.model_loader import BaseCompiler, MOECompiler
+import time
 
-def list_files(directory):
-    image_list = []
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            image_list.append(os.path.join(root, file))
-    
-    return image_list
+def producer(code, model):
+    '''
+    code: The code user input
+    model: int, 0: classification; 1: n to n
+    '''
+    torch.manual_seed(1234)
+    if model == 1:
+        print("N to N")
+        # compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
+        # compiler.compile(code)
+    if model == 0:
+        print("Classification")
+        # compiler = MOECompiler()
+        # compiler.compile(code)
+    time.sleep(80)
+
+
+def delete_all(path):
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.gif']
+    for extension in image_extensions:
+        for image_path in glob.glob(os.path.join(path, extension)):
+            os.remove(image_path)
+            print(f'Deleted {image_path}')
+
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class NewFileHandler(FileSystemEventHandler):
+    def __init__(self):
+        super().__init__()
+        self.new_files = []
+
+    def on_created(self, event):
+        if not event.is_directory:
+            self.new_files.append(event.src_path)
+            print(f'New file created: {event.src_path}')
+
 
 class ImageConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         print('connect start....')
         await self.accept()
-        # await self.run_model_and_send_images()
 
-    async def run_model_and_send_images(self):
-        image_list = list_files('data/image')
-        image_list.sort(reverse=True)
-        print(image_list)
-        for step in range(1, 1001):  # 假设模型运行1000步
-            # 模拟模型运行所需时间
-            await asyncio.sleep(0.05)  # 使用asyncio.sleep来模拟异步运行
-            if step % 20 == 0:
-                image_name = image_list.pop()
+    async def run_model_and_send_images(self, code, model):
+        generation = threading.Thread(target=producer,args=(code, model,))
+        path_to_watch = "data/dummy"
+        event_handler = NewFileHandler()
+        observer = Observer()
+        observer.schedule(event_handler, path_to_watch, recursive=False)
+        observer.start()
+        generation.start()
+        handler_len = 0
+        while True:
+            if len(event_handler.new_files) != handler_len:
+                handler_len = len(event_handler.new_files)
+                image_name = event_handler.new_files[-1]
                 image_data = image_to_base64(image_name)
-                print(image_name)
                 await self.send(text_data=json.dumps({
-                    'image': image_data,
-                    'step': step
-                }))
-            else:
+                     'image': image_data,
+                     'step': 20 * handler_len,
+                     'status': 200
+                 }))
+            if not generation.is_alive():
                 await self.send(text_data=json.dumps({
-                    'step': step
-                }))
+                     'step': 20 * handler_len,
+                     'status': 400
+                 }))
+                break
+        delete_all(path_to_watch)
+        
 
     async def disconnect(self, close_code):
         pass
@@ -46,5 +87,4 @@ class ImageConsumer(AsyncWebsocketConsumer):
         message = json.loads(text_data)
         code = message['code']
         model = message['model']
-        print(code, model)
-        await self.run_model_and_send_images()
+        await self.run_model_and_send_images(code, model)

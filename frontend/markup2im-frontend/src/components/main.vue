@@ -103,7 +103,7 @@ export default {
         }
         this.step = data.step
 
-        if (data.step === 1000){
+        if (data.status === 400){
           this.socket.close()
           this.finish = true
           this.start = false

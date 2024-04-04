@@ -73,8 +73,8 @@ class BaseCompiler:
                 ) -> None:
         self.output_dir = output_dir
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_type)
-        self.text_encoder = AutoModel.from_pretrained(encoder_type).cuda()
-        self.hidden_states = encode_text(self.text_encoder, torch.zeros(1, 1).long().cuda(), None)
+        self.text_encoder = AutoModel.from_pretrained(encoder_type)
+        self.hidden_states = encode_text(self.text_encoder, torch.zeros(1, 1).long(), None)
         image_decoder = create_image_decoder(image_size, color_channels, self.hidden_states.shape[-1])
         image_decoder = image_decoder.cuda()
         self.pipeline = load_pipeline(image_decoder, model_path)
@@ -85,8 +85,8 @@ class BaseCompiler:
 
     def compile(self, text: str):
         example = self.tokenizer(text, truncation=True, max_length=1024)
-        input_ids = torch.LongTensor(example['input_ids'] + [self.eos_id,]).cuda()
-        mask = torch.LongTensor(example['attention_mask'] + [1,]).cuda()
+        input_ids = torch.LongTensor(example['input_ids'] + [self.eos_id,])
+        mask = torch.LongTensor(example['attention_mask'] + [1,])
         input_ids.unsqueeze_(0)
         mask.unsqueeze_(0)
         encoder_hidden_states = encode_text(self.text_encoder, input_ids, mask)
@@ -166,7 +166,7 @@ class MOECompiler(BaseCompiler):
 # test
 if __name__ == "__main__":
     torch.manual_seed(1234)
-    compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
+    compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
     # compiler.compile("(0,\\frac{a}{2}\\tau(0)+\\frac{b}{2}),")
     # compiler.compile("( 0, \\frac { a } { 2 } \\tau ( 0 ) + \\frac { b } { 2 } ),")
     # compiler.compile("\\hat { N } _ { 3 } = \\sum \\sp f _ { j = 1 } a _ { j } \sp { \\dagger } a _ { j } \\, .")
