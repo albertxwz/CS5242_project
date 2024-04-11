@@ -107,10 +107,10 @@ class BaseCompiler:
         self.pipeline.numpy_to_pil(pred_images)[0].save(os.path.join(self.output_dir, f'_1000.png'))
 
 model_paths = [
-    "/home/x/xie77777/codes/markup2im/models/math/scheduled_sampling/model_e100_lr0.0001.pt.100", # latex
-    "/home/x/xie77777/codes/markup2im/models/tables/scheduled_sampling/model_e100_lr0.0001.pt.100", # table
-    "/home/x/xie77777/codes/markup2im/models/molecules/scheduled_sampling/model_e100_lr0.0001.pt.100", # chem
-    "/home/x/xie77777/codes/markup2im/models/music/scheduled_sampling/model_e100_lr0.0001.pt.100", # music
+    "/home/x/xie77777/codes/markup2im/models/math/model_e100_lr0.0001.pt.100", # latex
+    "/home/x/xie77777/codes/markup2im/models/tables/model_e100_lr0.0001.pt.100", # table
+    "/home/x/xie77777/codes/markup2im/models/molecules/model_e100_lr0.0001.pt.100", # chem
+    "/home/x/xie77777/codes/markup2im/models/music/model_e100_lr0.0001.pt.100", # music
 ]
 
 types = [
@@ -156,13 +156,15 @@ class MOECompiler(BaseCompiler):
                 for i in range(4)
         ]
         #added 
-        self.selector = torch.load("backend/MOEmodel_torch.pth", map_location=torch.device('cpu'))# classifier
+        self.selector = TextMLP(10001, 100, 128, 4)
+        self.selector.load_state_dict(torch.load("backend/MOE.pth"))
+        self.selector.eval()
     #added
     def get_type(self, text):
         model = self.selector
         result = 0 # set default as math
 
-        with open('tokenizer.json', 'r', encoding='utf-8') as f:
+        with open('backend/tokenizer.json', 'r', encoding='utf-8') as f:
             data = f.read()
             tokenizer = tokenizer_from_json(data)
 
@@ -186,8 +188,11 @@ class MOECompiler(BaseCompiler):
 if __name__ == "__main__":
     torch.manual_seed(1234)
     # compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
-    compiler = MOECompiler()
+    # compiler = MOECompiler()
     # compiler.compile("(0,\\frac{a}{2}\\tau(0)+\\frac{b}{2}),")
     # compiler.compile("( 0, \\frac { a } { 2 } \\tau ( 0 ) + \\frac { b } { 2 } ),")
     # compiler.compile("\\hat { N } _ { 3 } = \\sum \\sp f _ { j = 1 } a _ { j } \sp { \\dagger } a _ { j } \\, .")
-    compiler.compile("d s ^ { 2 } = e ^ { - 2 k r _ { c } | \\phi | } \\eta _ { \\mu \\nu } d x ^ { \mu } d x ^ { \\nu } - r _ { c } ^ { 2 } d \\phi ^ { 2 },")
+    # compiler.compile("d s ^ { 2 } = e ^ { - 2 k r _ { c } | \\phi | } \\eta _ { \\mu \\nu } d x ^ { \mu } d x ^ { \\nu } - r _ { c } ^ { 2 } d \\phi ^ { 2 },")
+    model = torch.load("/home/x/xie77777/codes/markup2im/backend/backend/MOEmodel_torch.pth", map_location=torch.device('cpu'))
+    print(model)
+    torch.save(model.state_dict(), "/home/x/xie77777/codes/markup2im/backend/backend/MOE.pth")

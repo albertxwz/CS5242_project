@@ -64,15 +64,6 @@ class ImageConsumer(AsyncWebsocketConsumer):
         generation.start()
         handler_len = 0
         while True:
-            # if len(event_handler.new_files) != handler_len:
-            #     handler_len = len(event_handler.new_files)
-            #     image_name = event_handler.new_files[-1]
-            #     image_data = image_to_base64(image_name)
-            #     await self.send(text_data=json.dumps({
-            #          'image': image_data,
-            #          'step': 20 * handler_len,
-            #          'status': 200
-            #      }))
             if len(event_handler.new_files) != handler_len:
                 handler_len = len(event_handler.new_files)
                 if handler_len > 1:

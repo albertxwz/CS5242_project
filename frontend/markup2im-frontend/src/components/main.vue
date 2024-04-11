@@ -72,8 +72,8 @@ export default {
         finish: false,
         selectedModel: 0,
         models: [
-          {name: "Classification Model", value: 0},
-          {name: "N to N Model", value: 1}
+          {name: "Mixture of Experts", value: 0},
+          {name: "N to N", value: 1}
         ]
 
 			}
