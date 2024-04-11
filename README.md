@@ -5,6 +5,9 @@ To train on a node with multiple gpus, check the script `run_multigpus.sh`.
 
 To train on multiple nodes with multiple gpus, check the script `run_multinode.sh`.
 
+---
+To use [google/gemma-2b](https://huggingface.co/google/gemma-2b) model, please get the granted access first, and login to huggingface with `transformers-cli login` in your terminal.
+
 # Markup-to-Image Diffusion Models with Scheduled Sampling
 
 We provide code to reproduce [our paper on markup-to-image generation](https://openreview.net/pdf?id=81VJDmOE2ol). Our code is built on top of HuggingFace [diffusers](https://github.com/huggingface/diffusers) and [transformers](https://github.com/huggingface/transformers).

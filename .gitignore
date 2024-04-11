@@ -1,6 +1,7 @@
 output/*
 models/*
 dummy
+*.log
 *.out
 *.error
 frontend/markup2im-frontend/node_modules
