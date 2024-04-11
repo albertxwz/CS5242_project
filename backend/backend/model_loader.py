@@ -73,10 +73,11 @@ class BaseCompiler:
                 ) -> None:
         self.output_dir = output_dir
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_type)
-        self.text_encoder = AutoModel.from_pretrained(encoder_type)
-        self.hidden_states = encode_text(self.text_encoder, torch.zeros(1, 1).long(), None)
+        self.text_encoder = AutoModel.from_pretrained(encoder_type).cuda()
+        self.hidden_states = encode_text(self.text_encoder, torch.zeros(1, 1).long().cuda(), None)
         image_decoder = create_image_decoder(image_size, color_channels, self.hidden_states.shape[-1])
         image_decoder = image_decoder.cuda()
+        print(f"[Debug] {image_size}, {color_channels}, {encoder_type}")
         self.pipeline = load_pipeline(image_decoder, model_path)
 
         self.eos_id = self.tokenizer.encode(self.tokenizer.eos_token)[0]
@@ -85,8 +86,8 @@ class BaseCompiler:
 
     def compile(self, text: str):
         example = self.tokenizer(text, truncation=True, max_length=1024)
-        input_ids = torch.LongTensor(example['input_ids'] + [self.eos_id,])
-        mask = torch.LongTensor(example['attention_mask'] + [1,])
+        input_ids = torch.LongTensor(example['input_ids'] + [self.eos_id,]).cuda()
+        mask = torch.LongTensor(example['attention_mask'] + [1,]).cuda()
         input_ids.unsqueeze_(0)
         mask.unsqueeze_(0)
         encoder_hidden_states = encode_text(self.text_encoder, input_ids, mask)
@@ -112,7 +113,23 @@ model_paths = [
     "/home/x/xie77777/codes/markup2im/models/music/scheduled_sampling/model_e100_lr0.0001.pt.100", # music
 ]
 
-# TODO: complete this 
+types = [
+    'EleutherAI/gpt-neo-125M',
+    'EleutherAI/gpt-neo-125M',
+    'DeepChem/ChemBERTa-77M-MLM',
+    'EleutherAI/gpt-neo-125M',
+]
+
+channels = [1, 1, 3, 1]
+
+image_sizes = [
+    (64, 320),
+    (64, 64),
+    (128, 128),
+    (192, 448),
+]
+
+# TODO: not work with uvicorn or multiprocess
 ## added
 class TextMLP(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
@@ -129,15 +146,17 @@ class TextMLP(nn.Module):
         out = self.relu(out)
         out = self.fc2(out)
         return out
+
         
 class MOECompiler(BaseCompiler):
     def __init__(self) -> None:
         self.compilers = [
-            BaseCompiler(p, "/home/x/xie77777/codes/markup2im/backend/data/dummy")
-                for p in model_paths
+            BaseCompiler(model_path=model_paths[i], output_dir="data/dummy",
+                         image_size=image_sizes[i], encoder_type=types[i], color_channels=channels[i])
+                for i in range(4)
         ]
         #added 
-        self.selector = torch.load("MOEmodel_torch.pth", map_location=torch.device('cpu'))# classifier
+        self.selector = torch.load("backend/MOEmodel_torch.pth", map_location=torch.device('cpu'))# classifier
     #added
     def get_type(self, text):
         model = self.selector
@@ -166,7 +185,8 @@ class MOECompiler(BaseCompiler):
 # test
 if __name__ == "__main__":
     torch.manual_seed(1234)
-    compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
+    # compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
+    compiler = MOECompiler()
     # compiler.compile("(0,\\frac{a}{2}\\tau(0)+\\frac{b}{2}),")
     # compiler.compile("( 0, \\frac { a } { 2 } \\tau ( 0 ) + \\frac { b } { 2 } ),")
     # compiler.compile("\\hat { N } _ { 3 } = \\sum \\sp f _ { j = 1 } a _ { j } \sp { \\dagger } a _ { j } \\, .")

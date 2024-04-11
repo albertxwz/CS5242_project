@@ -5,7 +5,7 @@ import os
 import threading
 import glob
 import torch
-from backend.model_loader import BaseCompiler, MOECompiler
+from backend.model_loader import BaseCompiler, MOECompiler, TextMLP
 import time
 
 def producer(code, model):
@@ -16,13 +16,13 @@ def producer(code, model):
     torch.manual_seed(1234)
     if model == 1:
         print("N to N")
-        # compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
-        # compiler.compile(code)
+        compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy", save_interval=20)
+        compiler.compile(code)
     if model == 0:
         print("Classification")
-        # compiler = MOECompiler()
-        # compiler.compile(code)
-    time.sleep(80)
+        compiler = MOECompiler()
+        compiler.compile(code)
+    # time.sleep(80)
 
 
 def delete_all(path):
@@ -54,6 +54,7 @@ class ImageConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def run_model_and_send_images(self, code, model):
+        # generation = threading.Thread(target=producer,args=(code, model,))
         generation = Process(target=producer,args=(code, model,))
         path_to_watch = "data/dummy"
         event_handler = NewFileHandler()
@@ -63,6 +64,15 @@ class ImageConsumer(AsyncWebsocketConsumer):
         generation.start()
         handler_len = 0
         while True:
+            # if len(event_handler.new_files) != handler_len:
+            #     handler_len = len(event_handler.new_files)
+            #     image_name = event_handler.new_files[-1]
+            #     image_data = image_to_base64(image_name)
+            #     await self.send(text_data=json.dumps({
+            #          'image': image_data,
+            #          'step': 20 * handler_len,
+            #          'status': 200
+            #      }))
             if len(event_handler.new_files) != handler_len:
                 handler_len = len(event_handler.new_files)
                 if handler_len > 1:
@@ -70,7 +80,7 @@ class ImageConsumer(AsyncWebsocketConsumer):
                     image_data = image_to_base64(image_name)
                     await self.send(text_data=json.dumps({
                         'image': image_data,
-                        'step': 20 * handler_len,
+                        'step': 20 * (handler_len - 1),
                         'status': 200
                     }))
             if not generation.is_alive():

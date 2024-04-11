@@ -148,7 +148,6 @@ export default {
   height: 10%;
   display: flex;
   flex-direction: column;
-  background-image: url('../assets/nus_logo.png');
   background-size: 165px 75px;
   background-position: left;
   background-repeat: no-repeat;
