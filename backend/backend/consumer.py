@@ -35,6 +35,7 @@ def delete_all(path):
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from multiprocessing import Process
 
 class NewFileHandler(FileSystemEventHandler):
     def __init__(self):
@@ -53,7 +54,7 @@ class ImageConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def run_model_and_send_images(self, code, model):
-        generation = threading.Thread(target=producer,args=(code, model,))
+        generation = Process(target=producer,args=(code, model,))
         path_to_watch = "data/dummy"
         event_handler = NewFileHandler()
         observer = Observer()
@@ -64,13 +65,14 @@ class ImageConsumer(AsyncWebsocketConsumer):
         while True:
             if len(event_handler.new_files) != handler_len:
                 handler_len = len(event_handler.new_files)
-                image_name = event_handler.new_files[-1]
-                image_data = image_to_base64(image_name)
-                await self.send(text_data=json.dumps({
-                     'image': image_data,
-                     'step': 20 * handler_len,
-                     'status': 200
-                 }))
+                if handler_len > 1:
+                    image_name = event_handler.new_files[-2]
+                    image_data = image_to_base64(image_name)
+                    await self.send(text_data=json.dumps({
+                        'image': image_data,
+                        'step': 20 * handler_len,
+                        'status': 200
+                    }))
             if not generation.is_alive():
                 await self.send(text_data=json.dumps({
                      'step': 20 * handler_len,
@@ -87,4 +89,5 @@ class ImageConsumer(AsyncWebsocketConsumer):
         message = json.loads(text_data)
         code = message['code']
         model = message['model']
+        print(code)
         await self.run_model_and_send_images(code, model)
