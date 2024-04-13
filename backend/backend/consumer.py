@@ -16,7 +16,7 @@ def producer(code, model):
     torch.manual_seed(1234)
     if model == 1:
         print("N to N")
-        compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy", save_interval=20)
+        compiler = BaseCompiler("../models/all/model_e100_lr0.0001.pt.100", "data/dummy", save_interval=20)
         compiler.compile(code)
     if model == 0:
         print("Classification")

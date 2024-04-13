@@ -1,6 +1,5 @@
 output/*
 models/*
-dummy
 *.log
 *.out
 *.error

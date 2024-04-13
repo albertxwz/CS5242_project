@@ -77,7 +77,7 @@ class BaseCompiler:
         self.hidden_states = encode_text(self.text_encoder, torch.zeros(1, 1).long().cuda(), None)
         image_decoder = create_image_decoder(image_size, color_channels, self.hidden_states.shape[-1])
         image_decoder = image_decoder.cuda()
-        print(f"[Debug] {image_size}, {color_channels}, {encoder_type}")
+        # print(f"[Debug] {image_size}, {color_channels}, {encoder_type}")
         self.pipeline = load_pipeline(image_decoder, model_path)
 
         self.eos_id = self.tokenizer.encode(self.tokenizer.eos_token)[0]
@@ -107,10 +107,10 @@ class BaseCompiler:
         self.pipeline.numpy_to_pil(pred_images)[0].save(os.path.join(self.output_dir, f'_1000.png'))
 
 model_paths = [
-    "/home/x/xie77777/codes/markup2im/models/math/model_e100_lr0.0001.pt.100", # latex
-    "/home/x/xie77777/codes/markup2im/models/tables/model_e100_lr0.0001.pt.100", # table
-    "/home/x/xie77777/codes/markup2im/models/molecules/model_e100_lr0.0001.pt.100", # chem
-    "/home/x/xie77777/codes/markup2im/models/music/model_e100_lr0.0001.pt.100", # music
+    "../models/math/model_e100_lr0.0001.pt.100", # latex
+    "../models/tables/model_e100_lr0.0001.pt.100", # table
+    "../models/molecules/model_e100_lr0.0001.pt.100", # chem
+    "../models/music/model_e100_lr0.0001.pt.100", # music
 ]
 
 types = [
@@ -129,8 +129,6 @@ image_sizes = [
     (192, 448),
 ]
 
-# TODO: not work with uvicorn or multiprocess
-## added
 class TextMLP(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
         super(TextMLP, self).__init__()
@@ -183,16 +181,3 @@ class MOECompiler(BaseCompiler):
     def compile(self, text) -> None:
         model_index = self.get_type(text)# modify
         self.compilers[model_index].compile(text)
-
-# test
-if __name__ == "__main__":
-    torch.manual_seed(1234)
-    # compiler = BaseCompiler("/home/x/xie77777/codes/markup2im/models/all_2/model_e100_lr0.0001.pt.100", "/home/x/xie77777/codes/markup2im/backend/data/dummy")
-    # compiler = MOECompiler()
-    # compiler.compile("(0,\\frac{a}{2}\\tau(0)+\\frac{b}{2}),")
-    # compiler.compile("( 0, \\frac { a } { 2 } \\tau ( 0 ) + \\frac { b } { 2 } ),")
-    # compiler.compile("\\hat { N } _ { 3 } = \\sum \\sp f _ { j = 1 } a _ { j } \sp { \\dagger } a _ { j } \\, .")
-    # compiler.compile("d s ^ { 2 } = e ^ { - 2 k r _ { c } | \\phi | } \\eta _ { \\mu \\nu } d x ^ { \mu } d x ^ { \\nu } - r _ { c } ^ { 2 } d \\phi ^ { 2 },")
-    model = torch.load("/home/x/xie77777/codes/markup2im/backend/backend/MOEmodel_torch.pth", map_location=torch.device('cpu'))
-    print(model)
-    torch.save(model.state_dict(), "/home/x/xie77777/codes/markup2im/backend/backend/MOE.pth")
