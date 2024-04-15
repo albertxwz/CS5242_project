@@ -15,9 +15,9 @@ After run, you can input the address:
 localhost:8080
 ```
 
-## Back End
+## Back end
 
-To run back end application to listen the http request from fronted, use python and unvcorn.
+To run back end application to listen the http request from fronted, use python and uvicorn.
 
 ```shell
 cd backend
