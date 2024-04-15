@@ -101,32 +101,33 @@ class BaseCompiler:
             swap_step=swap_step,
             ):
             pred_image = self.pipeline.numpy_to_pil(pred_images)[0]
-            if t % self.save_interval == 0:
+            if self.save_interval > 0 and t % self.save_interval == 0:
                 pred_image.save(os.path.join(self.output_dir, f'_{t:04d}.png'))
             t += 1
-        self.pipeline.numpy_to_pil(pred_images)[0].save(os.path.join(self.output_dir, f'_1000.png'))
+        if self.save_interval > -1:
+            self.pipeline.numpy_to_pil(pred_images)[0].save(os.path.join(self.output_dir, f'_1000.png'))
 
 model_paths = [
     "../models/math/model_e100_lr0.0001.pt.100", # latex
     "../models/tables/model_e100_lr0.0001.pt.100", # table
-    "../models/molecules/model_e100_lr0.0001.pt.100", # chem
     "../models/music/model_e100_lr0.0001.pt.100", # music
+    "../models/molecules/model_e100_lr0.0001.pt.100", # chem
 ]
 
 types = [
     'EleutherAI/gpt-neo-125M',
     'EleutherAI/gpt-neo-125M',
-    'DeepChem/ChemBERTa-77M-MLM',
     'EleutherAI/gpt-neo-125M',
+    'DeepChem/ChemBERTa-77M-MLM',
 ]
 
-channels = [1, 1, 3, 1]
+channels = [1, 1, 1, 3]
 
 image_sizes = [
     (64, 320),
     (64, 64),
-    (128, 128),
     (192, 448),
+    (128, 128),
 ]
 
 class TextMLP(nn.Module):
@@ -147,10 +148,11 @@ class TextMLP(nn.Module):
 
         
 class MOECompiler(BaseCompiler):
-    def __init__(self) -> None:
+    def __init__(self, save_interval = 20) -> None:
         self.compilers = [
             BaseCompiler(model_path=model_paths[i], output_dir="data/dummy",
-                         image_size=image_sizes[i], encoder_type=types[i], color_channels=channels[i])
+                         image_size=image_sizes[i], encoder_type=types[i], color_channels=channels[i],
+                         save_interval=save_interval)
                 for i in range(4)
         ]
         #added 
@@ -181,3 +183,47 @@ class MOECompiler(BaseCompiler):
     def compile(self, text) -> None:
         model_index = self.get_type(text)# modify
         self.compilers[model_index].compile(text)
+
+
+# test time
+if __name__ == "__main__":
+    test_files = ["math", "table", "music", "chemistry"]
+    texts = []
+    for test_file in test_files:
+        with open("backend/test/"+test_file+".txt", "r", encoding="utf-8") as f:
+            content = f.read()
+            texts.append(content)
+    
+    results = {}
+    
+    n2n_compiler = BaseCompiler("../models/all/model_e100_lr0.0001.pt.100", output_dir="", save_interval=-1)
+    moe_compiler = MOECompiler(save_interval=-1)
+
+    import pandas as pd
+    import time
+
+    data = {
+        "original": [None] * 4,
+        "N2N": [None] * 4,
+        "MOE": [None] * 4,
+    }
+    
+    for i in range(4):
+        start = time.time()
+        moe_compiler.compilers[i].compile(texts[i])
+        data["original"][i] = time.time() - start
+
+    for i in range(4):
+        start = time.time()
+        moe_compiler.compile(texts[i])
+        data["MOE"][i] = time.time() - start
+    
+    for i in range(2):
+        start = time.time()
+        n2n_compiler.compile(texts[i])
+        data["N2N"][i] = time.time() - start
+    
+    df = pd.DataFrame(data)
+    df.index = test_files
+    df.to_csv("backend/test/results.csv")
+    # df.to_excel("backend/test/results.xlsx")
